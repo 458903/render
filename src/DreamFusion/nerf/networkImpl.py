@@ -10,7 +10,9 @@ from encoding import get_encoder
 
 from .utils import safe_normalize
 
-
+'''
+多层感知机
+'''
 class MLP(nn.Module):
     def __init__(self, dim_in, dim_out, dim_hidden, num_layers, bias=True):
         super().__init__()
@@ -33,7 +35,11 @@ class MLP(nn.Module):
                 x = F.relu(x, inplace=True)
         return x
 
-
+'''
+继承自NeRFRenderer类，表示一个基于NeRF的渲染网络,该类定义了前向传递的方法
+该方法接收一个场景中的点集和一个相机方向，返回该点集对应的颜色和密度
+通过场景中的点集和一个编码器获得对应的编码值，然后将编码值输入到一个MLP网络中，得到颜色和密度的估计值
+'''
 class NeRFNetwork(NeRFRenderer):
     def __init__(self,
                  opt,
@@ -69,6 +75,10 @@ class NeRFNetwork(NeRFRenderer):
             self.bg_net = None
 
     # add a density blob to the scene center
+    '''
+    在场景中心添加一个密度值较高的点，表示场景中的物体。
+    还定义了一个finite_difference_normal方法，用于根据场景中点的位置和密度，计算其法线向量。
+    '''
     @torch.no_grad()
     def density_blob(self, x):
         # x: [B, N, 3]
