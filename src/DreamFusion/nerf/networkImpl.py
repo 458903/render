@@ -73,8 +73,6 @@ class NeRFNetwork(NeRFRenderer):
 
         else:
             self.bg_net = None
-
-    # add a density blob to the scene center
     '''
     在场景中心添加一个密度值较高的点，表示场景中的物体。
     还定义了一个finite_difference_normal方法，用于根据场景中点的位置和密度，计算其法线向量。
@@ -88,7 +86,6 @@ class NeRFNetwork(NeRFRenderer):
         g = self.opt.blob_density * (1 - torch.sqrt(d) / self.opt.blob_radius)
 
         return g
-
     def common_forward(self, x):
 
         # sigma
@@ -100,8 +97,6 @@ class NeRFNetwork(NeRFRenderer):
         albedo = torch.sigmoid(h[..., 1:])
 
         return sigma, albedo
-
-    # ref: https://github.com/zhaofuq/Instant-NSR/blob/main/nerf/network_sdf.py#L192
     def finite_difference_normal(self, x, epsilon=1e-2):
         # x: [N, 3]
         dx_pos, _ = self.common_forward(
@@ -124,7 +119,6 @@ class NeRFNetwork(NeRFRenderer):
         ], dim=-1)
 
         return -normal
-
     def forward(self, x, d, l=None, ratio=1, shading='albedo'):
         # x: [N, 3], in [-bound, bound]
         # d: [N, 3], view direction, nomalized in [-1, 1]
@@ -154,7 +148,6 @@ class NeRFNetwork(NeRFRenderer):
                 color = albedo * lambertian.unsqueeze(-1)
 
         return sigma, color, normal
-
     def density(self, x):
         # x: [N, 3], in [-bound, bound]
 
@@ -164,7 +157,6 @@ class NeRFNetwork(NeRFRenderer):
             'sigma': sigma,
             'albedo': albedo,
         }
-
     def background(self, d):
 
         h = self.encoder_bg(d)  # [N, C]
@@ -175,7 +167,6 @@ class NeRFNetwork(NeRFRenderer):
         rgbs = torch.sigmoid(h)
 
         return rgbs
-
     # optimizer utils
     def get_params(self, lr):
 
