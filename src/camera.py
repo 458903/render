@@ -9,7 +9,7 @@ from .fileds import u_frame
 
 
 @ti.func
-def get_ray(c: Camera, uv: vec2, color: vec3) -> Ray:
+def get_ray(c: Camera, uv: vec2, color: vec3) -> Ray: # 生成从相机出发的一条光线
     theta = radians(c.vfov)
     half_height = tan(theta * 0.5)
     half_width = c.aspect * half_height

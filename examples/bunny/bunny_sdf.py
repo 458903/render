@@ -48,8 +48,10 @@ class Image:
         y = int(uv.y * self.img.shape[1])
         return self.img[x, y]
 
+# 环境光照来自hdr
 hdr_map = Image('assets/Tokyo_BigSight_3k.hdr')
 
+# 定义环境光
 @ti.dataclass
 class Ray:
     origin: vec3
@@ -60,6 +62,7 @@ class Ray:
     def at(r, t: float) -> vec3:
         return r.origin + t * r.direction
 
+# 定义物质
 @ti.dataclass
 class Material:
     albedo: vec3
@@ -71,10 +74,11 @@ class Material:
 
 @ti.dataclass
 class Transform:
-    position: vec3
-    rotation: vec3
-    scale: vec3
+    position: vec3 # 位置
+    rotation: vec3 # 旋角
+    scale: vec3    # 大小
 
+# 定义SDF模型
 @ti.dataclass
 class SDFObject:
     type: int
@@ -82,11 +86,13 @@ class SDFObject:
     transform: Transform
     material: Material
 
+# 光线步进是否击中
 @ti.dataclass
 class HitRecord:
-    object: SDFObject
-    position: vec3
-    hit: bool
+    object: SDFObject # SDF物体
+    position: vec3    # 位置
+    hit: bool         # 是否击中
+
 
 @ti.func
 def random_in_unit_disk():
@@ -213,18 +219,18 @@ def signed_distance(obj: SDFObject, pos: vec3) -> float:
 
     return sd_bunny(p)
 
-WORLD_LIST = [
+WORLD_LIST = [  # 场景scene中的物体列表
     SDFObject(type=SHAPE_BUNNY,
                 transform=Transform(vec3(0, 0, 0), vec3(-90, 0, 0), vec3(1, 1, 1)),
                 material=Material(vec3(1, 1, 1)*0.9, vec3(1), 0, 1, 0, 2.950))
 ]
 
-objects_num = len(WORLD_LIST)
-objects = SDFObject.field(shape=objects_num)
+objects_num = len(WORLD_LIST)                # 物体个数
+objects = SDFObject.field(shape=objects_num) #...
 for i in range(objects_num): objects[i] = WORLD_LIST[i]
 
 @ti.func
-def nearest_object(p: vec3) -> SDFObject:
+def nearest_object(p: vec3) -> SDFObject:    # 求出离屏幕最近的物体
     o = objects[0]; o.distance = abs(signed_distance(o, p))
     for i in range(1, objects_num):
         oi = objects[i]
@@ -233,14 +239,14 @@ def nearest_object(p: vec3) -> SDFObject:
     return o
 
 @ti.func
-def calc_normal(obj: SDFObject, p: vec3) -> vec3:
+def calc_normal(obj: SDFObject, p: vec3) -> vec3: # 法线计算
     e = vec2(1, -1) * PRECISION
     return normalize(e.xyy * signed_distance(obj, p + e.xyy) + \
                      e.yyx * signed_distance(obj, p + e.yyx) + \
                      e.yxy * signed_distance(obj, p + e.yxy) + \
                      e.xxx * signed_distance(obj, p + e.xxx) )
 
-@ti.func
+@ti.func                                         # 光线步进
 def raycast(ray: Ray) -> HitRecord:
     record = HitRecord(); t = MIN_DIS
     w, s, d, cerr = 1.6, 0.0, 0.0, 1e32
@@ -259,17 +265,17 @@ def raycast(ray: Ray) -> HitRecord:
         record.hit = err < PIXEL_RADIUS
         if t > MAX_DIS or record.hit: break
 
-    return record
+    return record            # 光线
 
 @ti.func
-def sample_spherical_map(v: vec3) -> vec2:
+def sample_spherical_map(v: vec3) -> vec2:      # 半球映射采样
     uv  = vec2(atan2(v.z, v.x), asin(v.y))
     uv *= vec2(0.5 / pi, 1 / pi)
     uv += 0.5
     return uv
 
 @ti.func
-def sky_color(ray: Ray) -> vec3:
+def sky_color(ray: Ray) -> vec3:                # 求天空颜色
     uv = sample_spherical_map(ray.direction)
     color = hdr_map.texture(uv) * 1.8
     color = pow(color, vec3(camera_gamma))
@@ -294,7 +300,7 @@ def roughness_sampling(hemispheric_sample: vec3, normal: vec3, roughness: float)
     return normalize(mix(normal, hemispheric_sample, alpha))
 
 @ti.func
-def ray_surface_interaction(ray: Ray, record: HitRecord) -> Ray:
+def ray_surface_interaction(ray: Ray, record: HitRecord) -> Ray:      # PRR
     albedo       = record.object.material.albedo
     roughness    = record.object.material.roughness
     metallic     = record.object.material.metallic
@@ -334,7 +340,7 @@ def ray_surface_interaction(ray: Ray, record: HitRecord) -> Ray:
 def brightness(rgb: vec3) -> float:
     return dot(rgb, vec3(0.299, 0.587, 0.114))
 
-@ti.func
+@ti.func                                      # 光线追踪
 def raytrace(ray: Ray) -> Ray:
     for i in range(MAX_RAYTRACE):
         inv_pdf = exp(float(i) / light_quality)
@@ -361,7 +367,7 @@ def raytrace(ray: Ray) -> Ray:
 
     return ray
 
-ACESInputMat = mat3(
+ACESInputMat = mat3(                          # 色调映射
     0.59719, 0.35458, 0.04823,
     0.07600, 0.90834, 0.01566,
     0.02840, 0.13383, 0.83777
@@ -424,7 +430,7 @@ def render(
         image_buffer[i, j] = buffer
         image_pixels[i, j] = color
 
-window = ti.ui.Window("Taichi Renderer", image_resolution)
+window = ti.ui.Window("兔子渲染", image_resolution)
 canvas = window.get_canvas()
 camera = ti.ui.Camera()
 camera.position(0, 0, 5)

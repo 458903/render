@@ -1,14 +1,11 @@
 import taichi as ti
-from taichi.math import length, vec2, vec3, min, max, dot, normalize
+from taichi import sin
+from taichi.math import length, vec2, vec3, min, max, dot, normalize, vec4, mat4
 from enum import IntEnum
 
 from .dataclass import Transform, SDFObject
 from .config import MAX_DIS
 
-'''
-使用有向距离场 (SDF, Signed Distance Field) 函数表示物体，
-这是当前实现全局光照常使用的方法（但通常是使用 SDF buffer 存储当前世界环境，而不是采样隐式曲面函数）。
-'''
 
 class SHAPE(IntEnum):
     NONE = 0
@@ -17,36 +14,49 @@ class SHAPE(IntEnum):
     CYLINDER = 3
     CONE = 4
     PLANE = 5
-    BUNNY= 6
+    BUNNY = 6
+
 
 @ti.func
 def sd_none(_: vec3, __: vec3) -> float:
     return MAX_DIS
+
+
 @ti.func
-def sd_sphere(p: vec3, r: vec3) -> float:  #球的 SDF 函数是到球心的距离减去球半径
+def sd_sphere(p: vec3, r: vec3) -> float:  # 球的 SDF 函数是到球心的距离减去球半径
     return length(p) - r.x
+
+
 @ti.func
 def sd_box(p: vec3, b: vec3) -> float:
     q = abs(p) - b
     return length(max(q, 0)) + min(q.max(), 0) - 0.03
+
+
 @ti.func
 def sd_cylinder(p: vec3, rh: vec3) -> float:
     d = abs(vec2(length(p.xz), p.y)) - rh.xy
     return min(d.max(), 0) + length(max(d, 0))
+
+
 @ti.func
 def sd_cone(p: vec3, rh: vec3) -> float:
     q = length(p.xz)
-    return max(dot(rh.xz, vec2(q, p.y)), -rh.y-p.y)
+    return max(dot(rh.xz, vec2(q, p.y)), -rh.y - p.y)
+
+
 @ti.func
 def sd_plane(p: vec3, h: vec3) -> float:
     return p.y - h.y
 
+
 @ti.func
-def sd_bunny(p: vec3, __:vec3) -> float:
+def sd_bunny(p: vec3, _: vec3) -> float:
     sd = 0.0
     if length(p) > 1.0:
         sd =  length(p) - 0.8
     else:
+        # neural networks can be really compact... when they want to be
         f00=sin(p.y*vec4(-3.02,1.95,-3.42,-.60)+p.z*vec4(3.08,.85,-2.25,-.24)-p.x*vec4(-.29,1.16,-3.74,2.89)+vec4(-.71,4.50,-3.24,-3.50))
         f01=sin(p.y*vec4(-.40,-3.61,3.23,-.14)+p.z*vec4(-.36,3.64,-3.91,2.66)-p.x*vec4(2.90,-.54,-2.75,2.71)+vec4(7.02,-5.41,-1.12,-7.41))
         f02=sin(p.y*vec4(-1.77,-1.28,-4.29,-3.20)+p.z*vec4(-3.49,-2.81,-.64,2.79)-p.x*vec4(3.15,2.14,-3.85,1.83)+vec4(-2.07,4.49,5.33,-2.17))
@@ -96,8 +106,6 @@ def sd_bunny(p: vec3, __:vec3) -> float:
     return sd
 
 
-
-
 SHAPE_FUNC = {
     SHAPE.NONE: sd_none,
     SHAPE.SPHERE: sd_sphere,
@@ -107,34 +115,29 @@ SHAPE_FUNC = {
     SHAPE.PLANE: sd_plane,
     SHAPE.BUNNY: sd_bunny
 }
-'''
-将给定的点p从物体坐标系变换到世界坐标系，使用了Transform类中的position和matrix成员变量来实现变换。
-calc_pos_scale函数利用transform函数计算出物体的位置和缩放因子，并返回一个包含两个vec3类型变量的元组。
-'''
+
+
 @ti.func
 def transform(t: Transform, p: vec3) -> vec3:
-    p -= t.position   # 不能压缩距离场的欧几里得空间
-    p = t.matrix @ p  # 否则不能进行正确的光线步进
+    p -= t.position  # Cannot squeeze the Euclidean space of distance field
+    p = t.matrix @ p  # Otherwise the correct ray marching is not possible
     return p
+
+
 @ti.func
 def calc_pos_scale(obj: SDFObject, p: vec3) -> tuple[vec3, vec3]:
     pos = transform(obj.transform, p)
     return pos, obj.transform.scale
+
+
 @ti.func
-def normal(shape: ti.template(), obj: SDFObject, p: vec3) -> vec3: # 对法线向量n进行单位化并返回
+def normal(shape: ti.template(), obj: SDFObject, p: vec3) -> vec3:
     pos, scale = calc_pos_scale(obj, p)
     n, h = vec3(0), 0.5773 * 0.005
 
-
+    # from https://iquilezles.org/articles/normalsSDF/
     for i in ti.static(range(4)):
-        e = 2.0*vec3((((i+3) >> 1) & 1), ((i >> 1) & 1), (i & 1))-1.0
-        n += e*SHAPE_FUNC[shape](pos+e*h, scale)
+        e = 2.0 * vec3((((i + 3) >> 1) & 1), ((i >> 1) & 1), (i & 1)) - 1.0
+        n += e * SHAPE_FUNC[shape](pos + e * h, scale)
 
     return normalize(n)
-'''
-接收一个shape参数，使用ti.template()声明，表示需要在编译时进行模板化，
-以实现根据不同的形状选择不同的距离场函数。该函数首先调用calc_pos_scale函数计算物体的位置和缩放因子，
-然后使用一个循环，通过在物体表面周围采样，计算出法线向量。
-具体来说，循环迭代四次，每次通过e变量在物体表面周围采样，
-然后调用对应的距离场函数计算出采样点到物体表面的距离，将该距离乘以e向量并累加到法线向量n中。
-'''
