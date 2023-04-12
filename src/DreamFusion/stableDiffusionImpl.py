@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from torch.cuda.amp import custom_bwd, custom_fwd
 from dataclasses import dataclass
 
-
+# 自动求导函数，可以用于自定义梯度
 class SpecifyGradient(torch.autograd.Function):
     @staticmethod
     @custom_fwd
@@ -29,7 +29,7 @@ class SpecifyGradient(torch.autograd.Function):
         gt_grad = gt_grad * grad_scale
         return gt_grad, None
 
-
+# 置随机数种子，以使随机数生成器的输出是可重现的
 def seed_everything(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -108,7 +108,7 @@ class StableDiffusion(nn.Module):
         self.alphas = self.scheduler.alphas_cumprod.to(self.device)  # for convenience
 
         print(f'[INFO] loaded stable diffusion!')
-
+    # 分词，得到文本嵌入向量
     def get_text_embeds(self, prompt, negative_prompt):
         # prompt, negative_prompt: [str]
 
@@ -129,31 +129,26 @@ class StableDiffusion(nn.Module):
         # Cat for final embeddings
         text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
         return text_embeddings
-
+    # 计算损失(loss)并返回
     def train_step(self, text_embeddings, pred_rgb, guidance_scale=100, as_latent=False, grad_clip=None):
 
-        if as_latent:
+        if as_latent: # 不需要进一步编码
             latents = F.interpolate(pred_rgb, (64, 64), mode='bilinear', align_corners=False) * 2 - 1
-        else:
-            # interp to 512x512 to be fed into vae.
+        else: # 将预测图像(rgb)调整大小(interpolate)并输入到一个变分自编码器(VAE)中进行编码以生成潜在向量(latents)。
             pred_rgb_512 = F.interpolate(pred_rgb, (512, 512), mode='bilinear', align_corners=False)
             # encode image into latents with vae, requires grad!
-            latents = self.encode_imgs(pred_rgb_512)
+            latents = self.encode_imgs(pred_rgb_512) # 对图像进行编码，提取其中的特征并用于后续生成新图像的过程中。
 
-        # timestep ~ U(0.02, 0.98) to avoid very high/low noise level
+        # 生成随机噪声的时间步长（timestep），将其限制在区间[0.02, 0.98]内，避免生成非常高或非常低的噪声水平。
+        # 引入随机噪声可以使生成的图像具有更大的变化和多样性。噪声可以用来增加图像的复杂性，使得生成的图像更加自然和真实
         t = torch.randint(self.min_step, self.max_step + 1, [1], dtype=torch.long, device=self.device)
 
-        # predict the noise residual with unet, NO grad!
+        # 生成噪声的预测值
         with torch.no_grad():
             # add noise
             noise = torch.randn_like(latents)
             latents_noisy = self.scheduler.add_noise(latents, noise, t)
-            # pred noise
             latent_model_input = torch.cat([latents_noisy] * 2)
-            # Save input tensors for UNet
-            # torch.save(latent_model_input, "train_latent_model_input.pt")
-            # torch.save(t, "train_t.pt")
-            # torch.save(text_embeddings, "train_text_embeddings.pt")
             noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
 
         # perform guidance (high scale from paper!)
