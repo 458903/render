@@ -9,25 +9,25 @@ from .util import rotate
 
 
 OBJECTS = sorted([
-    SDFObject(type=SHAPE.SPHERE,
+    SDFObject(type=SHAPE.SPHERE, # 底下的球面平台
               transform=Transform(vec3(0, -100.501, 0), vec3(0), vec3(100)),
               material=Material(vec3(1, 1, 1)*0.6, vec3(1), 1.0, 1.0, 0, 1.100)),
-    SDFObject(type=SHAPE.SPHERE,
+    SDFObject(type=SHAPE.SPHERE, # 大球
               transform=Transform(vec3(0, 0, 0), vec3(0), vec3(0.5)),
               material=Material(vec3(1, 1, 1)*0.9, vec3(1, 10, 1), 0, 1, 0, 1.000)),
     SDFObject(type=SHAPE.BUNNY,    # 兔子
-              transform=Transform(vec3(1, 0.2, 0), vec3(0, 0, 0), vec3(0.3)),
+              transform=Transform(vec3(1.5, 0, 0), vec3(-90, 0, 0), vec3(0.3)),
               material=Material(vec3(0.2, 0.2, 1)*0.9, vec3(1), 0.2, 1, 0, 1.100)),
-    SDFObject(type=SHAPE.SPHERE,
+    SDFObject(type=SHAPE.SPHERE,   # 小球
               transform=Transform(vec3(0.0, -0.2, 2), vec3(0), vec3(0.3)),
               material=Material(vec3(1, 1, 1)*0.9, vec3(1), 0, 0, 1, 1.500)),
-    SDFObject(type=SHAPE.CYLINDER,
+    SDFObject(type=SHAPE.CYLINDER, # 柱子
               transform=Transform(vec3(-1.0, -0.2, 0), vec3(0), vec3(0.3)),
               material=Material(vec3(1.0, 0.2, 0.2)*0.9, vec3(1), 0, 0, 0, 1.460)),
-    SDFObject(type=SHAPE.BOX,
+    SDFObject(type=SHAPE.BOX,  # 黄镜子
               transform=Transform(vec3(0, 0, 5), vec3(0), vec3(2, 1, 0.2)),
               material=Material(vec3(1, 1, 0.2)*0.9, vec3(1), 0, 1, 0, 0.470)),
-    SDFObject(type= SHAPE.BOX,
+    SDFObject(type= SHAPE.BOX,   # 普通镜子
               transform=Transform(vec3(0, 0, -2), vec3(0), vec3(2, 1, 0.2)),
               material=Material(vec3(1, 1, 1)*0.9, vec3(1), 0, 1, 0, 2.950))
 ], key=lambda o: o.type)
@@ -90,9 +90,6 @@ def calc_normal(obj: SDFObject, p: vec3) -> vec3:     #计算法线
     for shape in ti.static(SHAPES):
         if obj.type == shape:
             n = normal(shape, obj, p)
-        # else:
-        #   ...
-
     return n
 
 

@@ -8,6 +8,7 @@ from .util import random_in_unit_sphere, sample_float
 from .scene import calc_normal
 
 '''
+========================================基于物理的渲染=====================================================================
 计算 Fresnel-Schlick 近似模型中的反射率。Fresnel-Schlick 近似模型用于计算光线与表面相交时的反射率，
 NoI 是入射光线与法向量的点积，F0 是反射率的基础值。
 '''

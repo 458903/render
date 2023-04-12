@@ -11,7 +11,9 @@ from .util import brightness, sample_float, sample_vec2
 from .pbr import ray_surface_interaction
 from .ibl import sky_color
 from .scene import raycast
-
+'''
+==========================================路径追踪=======================================================================
+'''
 
 @ti.func
 def raytrace(ray: Ray) -> Ray:
